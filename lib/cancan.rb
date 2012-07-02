@@ -11,3 +11,13 @@ require 'cancan/model_adapters/default_adapter'
 require 'cancan/model_adapters/active_record_adapter' if defined? ActiveRecord
 require 'cancan/model_adapters/data_mapper_adapter' if defined? DataMapper
 require 'cancan/model_adapters/mongoid_adapter' if defined?(Mongoid) && defined?(Mongoid::Document)
+
+module CanCan
+  def self.current_ability
+    Thread.current['current_ability']
+  end
+
+  def self.current_ability=(ability)
+    Thread.current['current_ability'] = ability
+  end
+end

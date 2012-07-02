@@ -121,8 +121,8 @@ module CanCan
     #     # check the database and return true/false
     #   end
     #
-    def can(action = nil, subject = nil, conditions = nil, &block)
-      rules << Rule.new(true, action, subject, conditions, block)
+    def can(action = nil, subject = nil, conditions = nil, custom_where_conditions = nil, &block)
+      rules << Rule.new(true, action, subject, conditions, custom_where_conditions, block)
     end
 
     # Defines an ability which cannot be done. Accepts the same arguments as "can".
@@ -137,8 +137,8 @@ module CanCan
     #     product.invisible?
     #   end
     #
-    def cannot(action = nil, subject = nil, conditions = nil, &block)
-      rules << Rule.new(false, action, subject, conditions, block)
+    def cannot(action = nil, subject = nil, conditions = nil, custom_where_conditions = nil, &block)
+      rules << Rule.new(false, action, subject, conditions, custom_where_conditions, block)
     end
 
     # Alias one or more actions into another one.

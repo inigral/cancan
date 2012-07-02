@@ -51,26 +51,36 @@ module CanCan
       #   cannot :manage, User, :self_managed => true
       #   query(:manage, User).conditions # => "not (self_managed = 't') AND ((manager_id = 1) OR (id = 1))"
       #
-      def conditions
+      def conditions(excluded_keys)
         if @rules.size == 1 && @rules.first.base_behavior
           # Return the conditions directly if there's just one definition
-          tableized_conditions(@rules.first.conditions).dup
+          @rules.first.custom_where_conditions || tableized_conditions(excluded_keys, @rules.first.conditions).dup
         else
           @rules.reverse.inject(false_sql) do |sql, rule|
-            merge_conditions(sql, tableized_conditions(rule.conditions).dup, rule.base_behavior)
+            custom_conditions = rule.custom_where_conditions
+            merge_conditions(sql, custom_conditions || tableized_conditions(excluded_keys, rule.conditions).dup, rule.base_behavior)
           end
         end
       end
 
-      def tableized_conditions(conditions, model_class = @model_class)
+      def tableized_conditions(excluded_keys, conditions, model_class = @model_class, parent_result_hash = {}, store_on_parent = false)
         return conditions unless conditions.kind_of? Hash
-        conditions.inject({}) do |result_hash, (name, value)|
+
+        excluded_key = excluded_keys.shift
+
+        conditions.inject(Hash.new({})) do |result_hash, (name, value)|
           if value.kind_of? Hash
             association_class = model_class.reflect_on_association(name).class_name.constantize
-            name = model_class.reflect_on_association(name).table_name.to_sym
-            value = tableized_conditions(value, association_class)
+            table_name = model_class.reflect_on_association(name).table_name.to_sym
+            value = tableized_conditions(excluded_keys, value, association_class, result_hash, excluded_key == name)
           end
-          result_hash[name] = value
+
+          if store_on_parent && value.kind_of?(Hash)
+            parent_result_hash[table_name] = value
+          else
+            result_hash[table_name || name] = value
+          end
+
           result_hash
         end
       end
@@ -80,7 +90,8 @@ module CanCan
       def joins
         joins_hash = {}
         @rules.each do |rule|
-          merge_joins(joins_hash, rule.associations_hash)
+          associations_hash = rule.custom_where_conditions ? rule.conditions : rule.associations_hash
+          merge_joins(joins_hash, associations_hash)
         end
         clean_joins(joins_hash) unless joins_hash.empty?
       end
@@ -91,7 +102,8 @@ module CanCan
         elsif @model_class.respond_to?(:where) && @model_class.respond_to?(:joins)
           mergeable_conditions = @rules.select {|rule| rule.unmergeable? }.blank?
           if mergeable_conditions
-            @model_class.where(conditions).joins(joins)
+            join_array, exclude_keys = joins
+            @model_class.where(conditions(exclude_keys)).joins(join_array)
           else
             @model_class.where(*(@rules.map(&:conditions))).joins(joins)
           end
@@ -156,10 +168,18 @@ module CanCan
       # Removes empty hashes and moves everything into arrays.
       def clean_joins(joins_hash)
         joins = []
+        excluded_keys = []
         joins_hash.each do |name, nested|
-          joins << (nested.empty? ? name : {name => clean_joins(nested)})
+          joins << if nested.empty?
+            name
+          elsif !nested.kind_of? Hash
+            { name => nested }
+          else
+            excluded_keys << name
+            { name => clean_joins(nested).first }
+          end
         end
-        joins
+        [joins, excluded_keys]
       end
     end
   end
