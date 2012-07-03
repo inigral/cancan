@@ -54,7 +54,7 @@ module CanCan
     #
     # Also see the RSpec Matchers to aid in testing.
     def can?(action, subject, *extra_args)
-      match = relevant_rules_for_match(action, subject).detect do |rule|
+      match = relevant_rules(action, subject).detect do |rule|
         rule.matches_conditions?(action, subject, extra_args)
       end
       match ? match.base_behavior : false
@@ -275,14 +275,6 @@ module CanCan
       rules.reverse.select do |rule|
         rule.expanded_actions = expand_actions(rule.actions)
         rule.relevant? action, subject
-      end
-    end
-
-    def relevant_rules_for_match(action, subject)
-      relevant_rules(action, subject).each do |rule|
-        if rule.only_raw_sql?
-          raise Error, "The can? and cannot? call cannot be used with a raw sql 'can' definition. The checking code cannot be determined for #{action.inspect} #{subject.inspect}"
-        end
       end
     end
 

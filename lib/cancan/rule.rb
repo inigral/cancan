@@ -11,7 +11,6 @@ module CanCan
     # and subject respectively (such as :read, @project). The third argument is a hash
     # of conditions and the last one is the block passed to the "can" call.
     def initialize(base_behavior, action, subject, conditions, custom_where_conditions, block)
-      raise Error, "You are not able to supply a block with a hash of conditions in #{action} #{subject} ability. Use either one." if conditions.kind_of?(Hash) && !block.nil?
       @match_all = action.nil? && subject.nil?
       @base_behavior = base_behavior
       @actions = [action].flatten
@@ -56,7 +55,7 @@ module CanCan
     end
 
     def conditions_empty?
-      @conditions == {} || @conditions.nil?
+      (@conditions == {} || @conditions.nil?) && @custom_where_conditions.nil?
     end
 
     def unmergeable?
