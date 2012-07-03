@@ -3,7 +3,7 @@ module CanCan
   # it holds the information about a "can" call made on Ability and provides
   # helpful methods to determine permission checking and conditions hash generation.
   class Rule # :nodoc:
-    attr_reader :base_behavior, :subjects, :actions, :conditions, :custom_where_conditions
+    attr_reader :base_behavior, :subjects, :actions, :custom_where_conditions
     attr_writer :expanded_actions
 
     # The first argument when initializing is the base_behavior which is a true/false
@@ -60,6 +60,10 @@ module CanCan
 
     def unmergeable?
       @conditions.respond_to?(:keys) && (! @conditions.keys.first.kind_of? Symbol)
+    end
+
+    def conditions
+      (@conditions.respond_to?(:call) && @conditions = @conditions.call) || @conditions
     end
 
     def associations_hash(conditions = @conditions)
