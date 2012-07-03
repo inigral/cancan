@@ -21,6 +21,10 @@ module CanCan
       @block = block
     end
 
+    def where_conditions
+      @custom_where_conditions || @conditions
+    end
+
     # Matches both the subject and action, not necessarily the conditions
     def relevant?(action, subject)
       subject = subject.values.first if subject.class == Hash

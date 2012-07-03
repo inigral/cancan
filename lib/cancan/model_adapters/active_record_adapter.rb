@@ -93,7 +93,11 @@ module CanCan
           associations_hash = rule.custom_where_conditions ? rule.conditions : rule.associations_hash
           merge_joins(joins_hash, associations_hash)
         end
-        clean_joins(joins_hash) unless joins_hash.empty?
+        if joins_hash.empty?
+          [joins_hash, []]
+        else
+          clean_joins(joins_hash) 
+        end
       end
 
       def database_records
@@ -105,7 +109,27 @@ module CanCan
             join_array, exclude_keys = joins
             @model_class.where(conditions(exclude_keys)).joins(join_array)
           else
-            @model_class.where(*(@rules.map(&:conditions))).joins(joins)
+            #@model_class.where(*(@rules.map(&:conditions))).joins(joins)
+            join_array, exclude_keys = joins
+            empty_rule = false
+            conditions_sql = []
+            @rules.each do |rule|
+              wc = rule.where_conditions
+              if wc.empty?
+                empty_rule = true
+                break
+              end
+              conditions_sql << "(#{wc})"
+            end
+            if empty_rule
+              # if any one rule has no conditions (e.g. it always applies), then there's no reaosn to filter at all
+              @model_class.scoped
+            else
+              # TODO: does this work?
+              conditions_sql = conditions_sql.join(" OR ")
+              puts conditions_sql
+              @model_class.where(conditions_sql).joins(join_array)
+            end
           end
         else
           @model_class.scoped(:conditions => conditions, :joins => joins)
