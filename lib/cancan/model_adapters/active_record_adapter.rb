@@ -96,7 +96,7 @@ module CanCan
         if joins_hash.empty?
           [joins_hash, []]
         else
-          clean_joins(joins_hash) 
+          clean_joins(joins_hash)
         end
       end
 
@@ -114,7 +114,7 @@ module CanCan
             empty_rule = false
             conditions_sql = []
             @rules.each do |rule|
-              wc = rule.where_conditions
+              wc = sanitize_sql(rule.where_conditions)
               if wc.empty?
                 empty_rule = true
                 break
@@ -125,9 +125,7 @@ module CanCan
               # if any one rule has no conditions (e.g. it always applies), then there's no reaosn to filter at all
               @model_class.scoped
             else
-              # TODO: does this work?
               conditions_sql = conditions_sql.join(" OR ")
-              puts conditions_sql
               @model_class.where(conditions_sql).joins(join_array)
             end
           end
