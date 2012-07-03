@@ -101,8 +101,9 @@ module CanCan
       end
 
       def database_records
-        if override_scope
-          @model_class.scoped.merge(override_scope)
+        scope = override_scope
+        if scope != false
+          @model_class.scoped.merge(scope)
         elsif @model_class.respond_to?(:where) && @model_class.respond_to?(:joins)
           mergeable_conditions = @rules.select {|rule| rule.unmergeable? }.blank?
           if mergeable_conditions
@@ -141,10 +142,14 @@ module CanCan
         if defined?(ActiveRecord::Relation) && conditions.any? { |c| c.kind_of?(ActiveRecord::Relation) }
           if conditions.size == 1
             conditions.first
+          elsif conditions.any?(&:empty?)
+            nil
           else
             rule = @rules.detect { |rule| rule.conditions.kind_of?(ActiveRecord::Relation) }
             raise Error, "Unable to merge an Active Record scope with other conditions. Instead use a hash or SQL for #{rule.actions.first} #{rule.subjects.first} ability."
           end
+        else
+          false
         end
       end
 
