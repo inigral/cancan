@@ -105,27 +105,17 @@ module CanCan
         if scope != false
           @model_class.scoped.merge(scope)
         elsif @model_class.respond_to?(:where) && @model_class.respond_to?(:joins)
-          mergeable_conditions = @rules.select {|rule| rule.unmergeable? }.blank?
-          if mergeable_conditions
-            join_array, exclude_keys = joins
-            @model_class.where(conditions(exclude_keys)).joins(join_array)
+          # if any one rule has no conditions (e.g. it always applies), then there's no reaosn to filter at all
+          if !@rules.detect { |rule| rule.where_conditions.empty? }.nil?
+            @model_class.scoped
           else
-            #@model_class.where(*(@rules.map(&:conditions))).joins(joins)
-            join_array, exclude_keys = joins
-            empty_rule = false
-            conditions_sql = []
-            @rules.each do |rule|
-              wc = sanitize_sql(rule.where_conditions)
-              if wc.empty?
-                empty_rule = true
-                break
-              end
-              conditions_sql << "(#{wc})"
-            end
-            if empty_rule
-              # if any one rule has no conditions (e.g. it always applies), then there's no reaosn to filter at all
-              @model_class.scoped
+            mergeable_conditions = @rules.select {|rule| rule.unmergeable? }.blank?
+            if mergeable_conditions
+              join_array, exclude_keys = joins
+              @model_class.where(conditions(exclude_keys)).joins(join_array)
             else
+              join_array, exclude_keys = joins
+              conditions_sql = @rules.map { |rule| "(#{sanitize_sql(rule.where_conditions)})" }
               conditions_sql = conditions_sql.join(" OR ")
               @model_class.where(conditions_sql).joins(join_array)
             end
