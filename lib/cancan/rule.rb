@@ -22,7 +22,7 @@ module CanCan
     end
 
     def where_conditions
-      @custom_where_conditions || conditions
+      custom_where_conditions || conditions
     end
 
     # Matches both the subject and action, not necessarily the conditions
@@ -65,6 +65,12 @@ module CanCan
 
     def conditions
       (@conditions.respond_to?(:call) && @conditions = @conditions.call(@ability)) || @conditions
+    end
+
+    def custom_where_conditions
+      (@custom_where_conditions.respond_to?(:call) &&
+        @custom_where_conditions = @custom_where_conditions.call(@ability)) ||
+        @custom_where_conditions
     end
 
     def associations_hash(conditions = @conditions)
