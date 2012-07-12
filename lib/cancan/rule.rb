@@ -36,6 +36,7 @@ module CanCan
       if @match_all
         call_block_with_all(action, subject, extra_args)
       elsif @block && !subject_class?(subject)
+        extra_args << @ability
         @block.call(subject, *extra_args)
       elsif conditions.kind_of?(Hash) && subject.class == Hash
         nested_subject_matches_conditions?(subject)
@@ -147,6 +148,7 @@ module CanCan
     end
 
     def call_block_with_all(action, subject, extra_args)
+      extra_args << @ability
       if subject.class == Class
         @block.call(action, subject, nil, *extra_args)
       else
