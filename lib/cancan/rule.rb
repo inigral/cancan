@@ -4,7 +4,7 @@ module CanCan
   # helpful methods to determine permission checking and conditions hash generation.
   class Rule # :nodoc:
     attr_reader :base_behavior, :subjects, :actions, :custom_where_conditions
-    attr_writer :expanded_actions
+    attr_writer :expanded_actions, :ability
 
     # The first argument when initializing is the base_behavior which is a true/false
     # value. True for "can" and false for "cannot". The next two arguments are the action
@@ -37,13 +37,13 @@ module CanCan
         call_block_with_all(action, subject, extra_args)
       elsif @block && !subject_class?(subject)
         @block.call(subject, *extra_args)
-      elsif @conditions.kind_of?(Hash) && subject.class == Hash
+      elsif conditions.kind_of?(Hash) && subject.class == Hash
         nested_subject_matches_conditions?(subject)
-      elsif @conditions.kind_of?(Hash) && !subject_class?(subject)
+      elsif conditions.kind_of?(Hash) && !subject_class?(subject)
         matches_conditions_hash?(subject)
       else
         # Don't stop at "cannot" definitions when there are conditions.
-        @conditions.empty? ? true : @base_behavior
+        conditions_empty? ? true : @base_behavior
       end
     end
 
@@ -52,15 +52,15 @@ module CanCan
     end
 
     def only_raw_sql?
-      @block.nil? && !conditions_empty? && !@conditions.kind_of?(Hash)
+      @block.nil? && !conditions_empty? && !conditions.kind_of?(Hash)
     end
 
     def conditions_empty?
-      (@conditions == {} || @conditions.nil?) && @custom_where_conditions.nil?
+      (conditions == {} || @conditions.nil?) && @custom_where_conditions.nil?
     end
 
     def unmergeable?
-      @conditions.respond_to?(:keys) && (! @conditions.keys.first.kind_of? Symbol)
+      conditions.respond_to?(:keys) && (! conditions.keys.first.kind_of? Symbol)
     end
 
     def conditions
@@ -73,7 +73,7 @@ module CanCan
         @custom_where_conditions
     end
 
-    def associations_hash(conditions = @conditions)
+    def associations_hash(conditions = self.conditions)
       hash = {}
       conditions.map do |name, value|
         hash[name] = associations_hash(value) if value.kind_of? Hash
@@ -83,9 +83,9 @@ module CanCan
 
     def attributes_from_conditions
       attributes = {}
-      @conditions.each do |key, value|
+      conditions.each do |key, value|
         attributes[key] = value unless [Array, Range, Hash].include? value.class
-      end if @conditions.kind_of? Hash
+      end if conditions.kind_of? Hash
       attributes
     end
 
@@ -112,7 +112,7 @@ module CanCan
     # This behavior can be overriden by a model adapter by defining two class methods:
     # override_matching_for_conditions?(subject, conditions) and
     # matches_conditions_hash?(subject, conditions)
-    def matches_conditions_hash?(subject, conditions = @conditions)
+    def matches_conditions_hash?(subject, conditions = self.conditions)
       if conditions.empty?
         true
       else
@@ -143,7 +143,7 @@ module CanCan
 
     def nested_subject_matches_conditions?(subject_hash)
       parent, child = subject_hash.first
-      matches_conditions_hash?(parent, @conditions[parent.class.name.downcase.to_sym] || {})
+      matches_conditions_hash?(parent, conditions[parent.class.name.downcase.to_sym] || {})
     end
 
     def call_block_with_all(action, subject, extra_args)

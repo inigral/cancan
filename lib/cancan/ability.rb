@@ -230,7 +230,9 @@ module CanCan
 
     def merge(ability)
       ability.send(:rules).each do |rule|
-        rules << rule.dup
+        rule = rule.dup
+        rule.ability = self
+        rules << rule
       end
       self
     end
