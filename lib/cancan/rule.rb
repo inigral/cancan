@@ -21,6 +21,13 @@ module CanCan
       @block = block
     end
 
+    def initialize_dup(rule)
+      [:@conditions, :@custom_where_conditions].each do |ivar_name|
+        rule_conditions = rule.instance_variable_get(ivar_name)
+        instance_variable_set(ivar_name, rule_conditions.dup) if rule_conditions.respond_to?(:call)
+      end
+    end
+
     def where_conditions
       custom_where_conditions || conditions
     end
