@@ -10,18 +10,19 @@ module CanCan
     # value. True for "can" and false for "cannot". The next two arguments are the action
     # and subject respectively (such as :read, @project). The third argument is a hash
     # of conditions and the last one is the block passed to the "can" call.
-    def initialize(base_behavior, action, subject, conditions, custom_where_conditions, block)
+    def initialize(base_behavior, action, subject, conditions, custom_where_conditions, ability, block)
       @match_all = action.nil? && subject.nil?
       @base_behavior = base_behavior
       @actions = [action].flatten
       @subjects = [subject].flatten
       @conditions = conditions || {}
       @custom_where_conditions = custom_where_conditions
+      @ability = ability
       @block = block
     end
 
     def where_conditions
-      @custom_where_conditions || @conditions
+      @custom_where_conditions || conditions
     end
 
     # Matches both the subject and action, not necessarily the conditions
@@ -63,7 +64,7 @@ module CanCan
     end
 
     def conditions
-      (@conditions.respond_to?(:call) && @conditions = @conditions.call) || @conditions
+      (@conditions.respond_to?(:call) && @conditions = @conditions.call(@ability)) || @conditions
     end
 
     def associations_hash(conditions = @conditions)

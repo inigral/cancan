@@ -106,7 +106,7 @@ module CanCan
           @model_class.scoped.merge(scope)
         elsif @model_class.respond_to?(:where) && @model_class.respond_to?(:joins)
           # if any one rule has no conditions (e.g. it always applies), then there's no reaosn to filter at all
-          if !@rules.detect { |rule| rule.where_conditions.empty? }.nil?
+          if !@rules.detect { |rule| rule.conditions_empty? }.nil?
             @model_class.scoped
           else
             mergeable_conditions = @rules.select {|rule| rule.unmergeable? }.blank?
