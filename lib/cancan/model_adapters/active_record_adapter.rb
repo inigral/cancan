@@ -76,8 +76,8 @@ module CanCan
           end
 
           if store_on_parent && value.kind_of?(Hash)
-            parent_result_hash[table_name] = value
-          else
+            parent_result_hash[table_name] = value if value.present?
+          elsif !value.kind_of?(Hash) || value.present?
             result_hash[table_name || name] = value
           end
 
@@ -174,8 +174,8 @@ module CanCan
       # Takes two hashes and does a deep merge.
       def merge_joins(base, add)
         add.each do |name, nested|
-          if base[name].is_a?(Hash) && !nested.empty?
-            merge_joins(base[name], nested)
+          if base[name].is_a?(Hash)
+            merge_joins(base[name], nested) unless nested.empty?
           else
             base[name] = nested
           end

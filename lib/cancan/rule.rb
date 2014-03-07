@@ -68,7 +68,8 @@ module CanCan
     end
 
     def unmergeable?
-      conditions.respond_to?(:keys) && (! conditions.keys.first.kind_of? Symbol)
+      @conditions.respond_to?(:keys) && @conditions.present? &&
+         (!@conditions.keys.first.kind_of? Symbol)
     end
 
     def conditions
