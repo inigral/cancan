@@ -68,24 +68,19 @@ module CanCan
 
         excluded_key = excluded_keys.shift
 
-        conditions.inject({}) do |result_hash, (name, value)|
+        conditions.inject(Hash.new({})) do |result_hash, (name, value)|
           if value.kind_of? Hash
-            value = value.dup
-            association_class = model_class.reflect_on_association(name).klass.name.constantize
-            nested = value.inject({}) do |nested,(k,v)|
-              if v.kind_of? Hash
-                value.delete(k)
-                nested[k] = v
-
-              else
-                result_hash[model_class.reflect_on_association(name).table_name.to_sym] = value
-              end
-              nested
-            end
-            result_hash.merge!(tableized_conditions(nested,association_class))
-          else
-            result_hash[name] = value
+            association_class = model_class.reflect_on_association(name).class_name.constantize
+            table_name = model_class.reflect_on_association(name).table_name.to_sym
+            value = tableized_conditions(excluded_keys, value, association_class, result_hash, excluded_key == name)
           end
+
+          if store_on_parent && value.kind_of?(Hash)
+            parent_result_hash[table_name] = value if value.present?
+          elsif !value.kind_of?(Hash) || value.present?
+            result_hash[table_name || name] = value
+          end
+
           result_hash
         end
       end
