@@ -96,6 +96,11 @@ module CanCan
       #
       #     load_resource :find_by => :permalink # will use find_by_permalink!(params[:id])
       #
+      # [:+id_param+]
+      #   Find using a param key other than :id. For example:
+      #
+      #     load_resource :id_param => :url # will use find(params[:url])
+      #
       # [:+collection+]
       #   Specify which actions are resource collection actions in addition to :+index+. This
       #   is usually not necessary because it will try to guess depending on if the id param is present.
@@ -289,7 +294,7 @@ module CanCan
 
     def self.included(base)
       base.extend ClassMethods
-      base.helper_method :can?, :cannot?, :current_ability
+      base.helper_method :can?, :cannot?, :current_ability if base.respond_to? :helper_method
     end
 
     # Raises a CanCan::AccessDenied exception if the current_ability cannot

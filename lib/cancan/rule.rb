@@ -128,6 +128,7 @@ module CanCan
         if model_adapter(subject).override_conditions_hash_matching? subject, conditions
           model_adapter(subject).matches_conditions_hash? subject, conditions
         else
+
           conditions.all? do |name, value|
             if model_adapter(subject).override_condition_matching? subject, name, value
               model_adapter(subject).matches_condition? subject, name, value

@@ -29,12 +29,19 @@ module CanCan
     #
     #   can? :create, @category => Project
     #
+    # You can also pass multiple objects to check. You only need to pass a hash
+    # following the pattern { :any => [many subjects] }. The behaviour is to check if
+    # there is a permission on any of the given objects.
+    #
+    #   can? :create, {:any => [Project, Rule]}
+    #
+    #
     # Any additional arguments will be passed into the "can" block definition. This
     # can be used to pass more information about the user's request for example.
     #
     #   can? :create, Project, request.remote_ip
     #
-    #   can :create Project do |project, remote_ip|
+    #   can :create, Project do |project, remote_ip|
     #     # ...
     #   end
     #
@@ -54,12 +61,16 @@ module CanCan
     #
     # Also see the RSpec Matchers to aid in testing.
     def can?(action, subject, *extra_args)
-      match = relevant_rules(action, subject).detect do |rule|
-        rule.matches_conditions?(action, subject, extra_args)
-      end
+      subject = extract_subjects(subject)
+
+      match = subject.map do |subject|
+        relevant_rules_for_match(action, subject).detect do |rule|
+          rule.matches_conditions?(action, subject, extra_args)
+        end
+      end.compact.first
+
       match ? match.base_behavior : false
     end
-
     # Convenience method which works the same as "can?" but returns the opposite value.
     #
     #   cannot? :destroy, @project
@@ -172,8 +183,14 @@ module CanCan
     # This way one can use params[:action] in the controller to determine the permission.
     def alias_action(*args)
       target = args.pop[:to]
+      validate_target(target)
       aliased_actions[target] ||= []
       aliased_actions[target] += args
+    end
+
+    # User shouldn't specify targets with names of real actions or it will cause Seg fault
+    def validate_target(target)
+      raise Error, "You can't specify target (#{target}) as alias because it is real action name" if aliased_actions.values.flatten.include? target
     end
 
     # Returns a hash of aliased actions. The key is the target and the value is an array of actions aliasing the key.
@@ -232,9 +249,38 @@ module CanCan
       ability.send(:rules).each do |rule|
         rule = rule.dup
         rule.ability = self
-        rules << rule
+        rules << rule.dup
       end
       self
+    end
+
+    # Return a hash of permissions for the user in the format of:
+    #   {
+    #     can: can_hash,
+    #     cannot: cannot_hash
+    #   }
+    #
+    # Where can_hash and cannot_hash are formatted thusly:
+    #   {
+    #     action: array_of_objects
+    #   }
+    def permissions
+      permissions_list = {:can => {}, :cannot => {}}
+
+      rules.each do |rule|
+        subjects = rule.subjects
+        expand_actions(rule.actions).each do |action|
+          if(rule.base_behavior)
+            permissions_list[:can][action] ||= []
+            permissions_list[:can][action] += subjects.map(&:to_s)
+          else
+            permissions_list[:cannot][action] ||= []
+            permissions_list[:cannot][action] += subjects.map(&:to_s)
+          end
+        end
+      end
+
+      permissions_list
     end
 
     private
@@ -252,9 +298,29 @@ module CanCan
     # This should be called before "matches?" and other checking methods since they
     # rely on the actions to be expanded.
     def expand_actions(actions)
-      actions.map do |action|
-        aliased_actions[action] ? [action, *expand_actions(aliased_actions[action])] : action
-      end.flatten
+      expanded_actions[actions] ||= begin
+        expanded = []
+        actions.each do |action|
+          expanded << action
+          if aliases = aliased_actions[action]
+            expanded += expand_actions(aliases)
+          end
+        end
+        expanded
+      end
+    end
+
+    def expanded_actions
+      @expanded_actions ||= {}
+    end
+
+    # It translates to an array the subject or the hash with multiple subjects given to can?.
+    def extract_subjects(subject)
+      subject = if subject.kind_of?(Hash) && subject.key?(:any)
+        subject[:any]
+      else
+        [subject]
+      end
     end
 
     # Given an action, it will try to find all of the actions which are aliased to it.
@@ -274,9 +340,19 @@ module CanCan
     # Returns an array of Rule instances which match the action and subject
     # This does not take into consideration any hash conditions or block statements
     def relevant_rules(action, subject)
-      rules.reverse.select do |rule|
+      relevant = rules.select do |rule|
         rule.expanded_actions = expand_actions(rule.actions)
         rule.relevant? action, subject
+      end
+      relevant.reverse!
+      relevant
+    end
+
+    def relevant_rules_for_match(action, subject)
+      relevant_rules(action, subject).each do |rule|
+        if rule.only_raw_sql?
+          raise Error, "The can? and cannot? call cannot be used with a raw sql 'can' definition. The checking code cannot be determined for #{action.inspect} #{subject.inspect}"
+        end
       end
     end
 

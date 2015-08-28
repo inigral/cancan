@@ -1,6 +1,6 @@
 module CanCan
   module ModelAdapters
-    class ActiveRecordAdapter < AbstractAdapter
+    module ActiveRecordAdapter
       def self.for_class?(model_class)
         model_class <= ActiveRecord::Base
       end
@@ -68,19 +68,24 @@ module CanCan
 
         excluded_key = excluded_keys.shift
 
-        conditions.inject(Hash.new({})) do |result_hash, (name, value)|
+        conditions.inject({}) do |result_hash, (name, value)|
           if value.kind_of? Hash
-            association_class = model_class.reflect_on_association(name).class_name.constantize
-            table_name = model_class.reflect_on_association(name).table_name.to_sym
-            value = tableized_conditions(excluded_keys, value, association_class, result_hash, excluded_key == name)
-          end
+            value = value.dup
+            association_class = model_class.reflect_on_association(name).klass.name.constantize
+            nested = value.inject({}) do |nested,(k,v)|
+              if v.kind_of? Hash
+                value.delete(k)
+                nested[k] = v
 
-          if store_on_parent && value.kind_of?(Hash)
-            parent_result_hash[table_name] = value if value.present?
-          elsif !value.kind_of?(Hash) || value.present?
-            result_hash[table_name || name] = value
+              else
+                result_hash[model_class.reflect_on_association(name).table_name.to_sym] = value
+              end
+              nested
+            end
+            result_hash.merge!(tableized_conditions(nested,association_class))
+          else
+            result_hash[name] = value
           end
-
           result_hash
         end
       end
@@ -126,6 +131,10 @@ module CanCan
       end
 
       private
+
+      def mergeable_conditions?
+        @rules.find {|rule| rule.unmergeable? }.blank?
+      end
 
       def override_scope
         conditions = @rules.map(&:conditions).compact
