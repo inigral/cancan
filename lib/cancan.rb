@@ -7,6 +7,9 @@ require 'cancan/model_additions'
 require 'cancan/exceptions'
 require 'cancan/inherited_resource'
 
+require 'cancan/model_adapters/abstract_adapter'
+require 'cancan/model_adapters/default_adapter'
+
 if defined? ActiveRecord
   require 'cancan/model_adapters/active_record_adapter'
   if ActiveRecord.respond_to?(:version) &&
